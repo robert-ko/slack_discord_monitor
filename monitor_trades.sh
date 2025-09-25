@@ -120,7 +120,8 @@ else
             
             # Start tailing and processing the file, redirect output to destination
             source "$VENV_PATH/bin/activate"
-            tail -f -n +1 "$LOGFILE" | python3 "$PROCESS_SCRIPT" --fetch-external > "$OUTPUT_DEST" 2>&1
+            stdbuf -oL ./log_poller.sh "$LOGFILE" | tee /dev/pts/8 | python3 "$PROCESS_SCRIPT" --fetch-external > "$OUTPUT_DEST" 2>&1
+            #stdbuf -oL tail -F -n +1 "$LOGFILE" | tee /dev/pts/8 | python3 "$PROCESS_SCRIPT" --fetch-external > "$OUTPUT_DEST" 2>&1
             
             # If we reach here, the process was interrupted
             log_message "Processing stopped"

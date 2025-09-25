@@ -23,6 +23,8 @@ class SymbolDashboard:
         self.fetch_external_data = fetch_external_data and EXTERNAL_DATA_AVAILABLE
         self.data_fetcher = StockDataFetcher() if self.fetch_external_data else None
         self.external_data_cache = {}
+        self.last_line_read_time = None
+        self.total_lines_processed = 0
         
     def process_csv_data(self):
         if self.csv_file:
@@ -40,20 +42,47 @@ class SymbolDashboard:
             self._process_row(row)
     
     def _process_stdin(self):
-        reader = csv.DictReader(sys.stdin)
+        # Read header line first
+        header_line = sys.stdin.readline().strip()
+        if not header_line:
+            return
+            
+        # Parse header to get field names
+        fieldnames = next(csv.reader([header_line]))
         
-        # Process initial data
-        try:
-            for row in reader:
-                if not self.running:
-                    break
-                self._process_row(row)
-        except StopIteration:
-            pass
-        
-        # Keep the thread alive - dashboard will handle quit via 'q' key
+        # Process lines one by one to avoid buffering issues
         while self.running:
-            time.sleep(0.1)
+            try:
+                line = sys.stdin.readline()
+                if not line:  # EOF
+                    time.sleep(0.1)
+                    continue
+                    
+                line = line.strip()
+                if not line:  # Empty line
+                    continue
+                
+                # Update last line read timestamp
+                with self.data_lock:
+                    self.last_line_read_time = time.strftime("%H:%M:%S")
+                    self.total_lines_processed += 1
+                    self.update_needed = True
+                    
+                # Parse the CSV line
+                try:
+                    values = next(csv.reader([line]))
+                    if len(values) >= len(fieldnames):
+                        row = dict(zip(fieldnames, values))
+                        self._process_row(row)
+                except (csv.Error, StopIteration):
+                    continue  # Skip malformed lines
+                    
+            except (EOFError, KeyboardInterrupt):
+                break
+            except Exception as e:
+                # Log errors but continue processing
+                print(f"Error processing stdin: {e}", file=sys.stderr)
+                time.sleep(0.1)
     
     def _process_row(self, row):
         symbol = row.get('Symbol', '').strip().replace('"', '')
@@ -172,10 +201,11 @@ class SymbolDashboard:
                     height, width = stdscr.getmaxyx()
                     screen_content = []
                     
-                    # Header
-                    header = "Symbol Dashboard - Press Ctrl+C to quit"
-                    screen_content.append((0, (width - len(header)) // 2, header, curses.A_BOLD))
-                    headers = f"{'Symbol':<8} {'Cnt':<4} {'Price':<8} {'Vol(M)':<8} {'RVOL-Y':<8} {'RVOL-30':<8} {'Float(M)':<9} {'Short%':<7}"
+                    # Header with line read info
+                    last_read_str = self.last_line_read_time if self.last_line_read_time else "None"
+                    header = f"Symbol Dashboard - Last Line: {last_read_str} (Lines: {self.total_lines_processed}) - Press Ctrl+C to quit"
+                    screen_content.append((0, 0, header, curses.A_BOLD))
+                    headers = f"{'Symbol':<8} {'Cnt':<4} {'Price':<8} {'Vol(M)':<8} {'RVOL-Y':<8} {'RVOL-30':<8} {'Float(M)':<9} {'Short%':<7} {'LastSeen':<9}"
                     screen_content.append((2, 0, headers, curses.A_UNDERLINE))
                     
                     # Symbols - sort by most recent timestamp first
@@ -211,7 +241,8 @@ class SymbolDashboard:
                         float_m_str = f"{float_shares/1000000:.1f}" if float_shares > 0 else "N/A"
                         short_str = f"{short_int_pct:.1f}" if short_int_pct > 0 else "N/A"
                         
-                        line = f"{symbol:<8} {stats['count']:<4} ${price:<7.2f} {vol_m_str:<8} {rvol_y_str:<8} {rvol_30_str:<8} {float_m_str:<9} {short_str:<7}"
+                        last_time = stats.get('last_time', 'N/A')
+                        line = f"{symbol:<8} {stats['count']:<4} ${price:<7.2f} {vol_m_str:<8} {rvol_y_str:<8} {rvol_30_str:<8} {float_m_str:<9} {short_str:<7} {last_time:<9}"
                         screen_content.append((row, 0, line, attr))
                     
                     # Footer
