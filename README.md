@@ -1,9 +1,8 @@
 # slack_discord_monitor
 
-Monitors macOS Notification Center in real time for Slack and Discord messages,
-filtering by channel and optionally detecting stock symbols or alert keywords.
-Reads directly from the Notification Center SQLite database — no AppleScript,
-no Accessibility APIs required.
+Monitor and filter Slack and Discord messages **without any API access, bot tokens, or admin permissions** — just run it on your Mac.
+
+Captures notifications directly from the macOS Notification Center database, filters by channel and stock symbol, and forwards matched alerts to **OpenClaw** for downstream processing. Works with any Slack workspace or Discord server you're already a member of, no special access required.
 
 ## Requirements
 
