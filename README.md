@@ -87,19 +87,21 @@ Use `--init-config` to generate a sample, or create manually:
 
 ## --reset-db flag
 
-Kills the `usernotificationsd` daemon so it restarts with a clean DB state,
-clearing accumulated stale notifications before the monitor begins polling.
+Kills the `usernoted` daemon (the process that owns the Notification Center SQLite DB)
+so it restarts with a clean DB state, clearing accumulated stale notifications.
 
 ```bash
 python3 notification_monitor.py --reset-db
 ```
 
 **What it does:**
-1. Runs `killall usernotificationsd` — the daemon restarts automatically.
-2. Polls the `app` table for up to 60 seconds (printing dots) waiting for
-   Slack/Discord to re-register. Re-registration happens the next time either
-   app delivers a notification, so sending a test message unblocks it immediately.
-3. Proceeds to the normal polling loop once apps are registered.
+1. Runs `killall usernoted` — the daemon restarts automatically within ~1 second.
+2. Queries the `app` table; Slack/Discord re-register immediately after restart
+   (no waiting required in normal use).
+3. Proceeds to the normal polling loop.
+
+**Note on daemons:** `usernoted` owns the DB. `usernotificationsd` only handles
+the delivery pipeline — killing it does **not** clear the DB.
 
 **Note:** Normal startup already ignores pre-existing notifications via
 `last_rec_id` tracking. Use `--reset-db` only when you also want to flush

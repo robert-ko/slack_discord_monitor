@@ -588,22 +588,23 @@ def poll_new_notifications(
 
 
 def reset_notification_db():
-    """Kill usernotificationsd so it restarts with a fresh DB state.
+    """Kill usernoted so it restarts with a fresh DB state.
 
-    This clears any stale/queued notifications from the Notification Center
-    database before we start polling. The daemon restarts automatically.
+    usernoted is the daemon that owns the Notification Center SQLite DB at
+    ~/Library/Group Containers/group.com.apple.usernoted/db2/db.
+    Killing it clears stale notifications; it restarts automatically.
     """
     result = subprocess.run(
-        ["killall", "usernotificationsd"],
+        ["killall", "usernoted"],
         capture_output=True,
         text=True,
     )
     if result.returncode == 0:
-        print("Killed usernotificationsd — waiting for restart...")
+        print("Killed usernoted — waiting for restart...")
         time.sleep(1)  # brief pause; app re-registration is handled by retry loop
     else:
         # Process wasn't running or no permission — not fatal
-        print(f"Note: could not kill usernotificationsd ({result.stderr.strip()})")
+        print(f"Note: could not kill usernoted ({result.stderr.strip()})")
 
 
 def check_full_disk_access() -> bool:
